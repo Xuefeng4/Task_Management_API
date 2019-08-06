@@ -5,7 +5,7 @@ const User = require('../models/users')
 const auth = async (rep, req, next)=>{
   try{
     const token = req.header('Authorization').replace('Bearer','')
-    const decoded = jwt.verify(token,'Thisistokensecret')
+    const decoded = jwt.verify(token,process.env.JWT_SECRET)
     const user = await User.findOne({_id:decoded._id,'tokens.token':token})
     if(!user){
       throw new Error()
@@ -14,7 +14,7 @@ const auth = async (rep, req, next)=>{
     //router do not need to fetch the data again
     req.token = token
     next()
-    
+
   }catch(e){
     res.status(401).send({error:'Need to authenticate'})
   }

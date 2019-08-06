@@ -3,12 +3,15 @@ const router = new express.Router()
 const User = require('../models/users.js')
 const auth = require('../middlewares/authentication.js')
 const multer = require('multer')
+const sharp = require('sharp')
+const {sendWelcomeEmail, sendCancelationEmail } = require('../emails/account')
 //sign up token
 router.post('/users', async (req,res)=>{
   const oneUser = new User(req.body)
 
   try {
     await oneUser.save()
+    sendWelcomeEmail(user.email, user.name) //async no need to wait for
     const token = await oneUser.generateToken();
     res.status(201).send({oneUser, token})
   }catch(e){
@@ -95,6 +98,7 @@ router.delete("users/me",auth, async(req, rep)=>{
 
   try{
     await req.user.remove()
+    sendCancelationEmail(req.user.email,req.auser.name)
     res.send(req.user)
   }catch(e){
     res.status(500).send()
@@ -102,8 +106,8 @@ router.delete("users/me",auth, async(req, rep)=>{
 })
 
 //profile photo uploads
+//  dest:'avatars' can be erased if you do not want to save but pass in the router
 const upload = multer({
-  dest:'avatars',
   limits:{
     fileSize:1000000 //1mb
   },
@@ -116,12 +120,42 @@ const upload = multer({
 })
 
 //avator will be the key we want to find in the request
-router.post('users/me/avator', upload.single('avator'),(req,res) => {
+//this is used created and change the avator
+//sharp is used to format and resize the picture
+router.post('users/me/avator',auth, upload.single('avator'),async (req,res) => {
+  const buffer = await sharp(req.file.buffer).resize({width:250, height:250}).png().toBuffer()
+  req.user.avator = req.file.buffer
+  await req.user.save()
   res.send()
 },(error, req, res, next)=>{
   res.status(400).send({error:error.message})
 })//error parameters must be like this so the user can understand this is the error handle function
 
+
+router.delete('users/me/avator', auth, async(req, res)=>{
+  try{
+    req.user.avator = undefined
+    await req.user.save()
+    res.send()
+  }catch(e){
+    res.status(404).send()
+  }
+})
+
+router.get('/users/:id/avator',async (req,res)=>{
+  try{
+    const user = await User.findByID(req.params.id)
+
+    if(!user){
+      throw new Error('No such user')
+    }
+    //set response header most of time express will do it
+    res.set('Content-Type','image/png')
+    res.send(user.avator)
+  }catch(e){
+    res.status(400).send()
+  }
+})
 // router.patch('/users/me', auth, async (req, res) => {
 //     const updates = Object.keys(req.body)
 //     const allowedUpdates = ['name', 'email', 'password', 'age']
