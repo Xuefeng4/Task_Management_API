@@ -2,7 +2,7 @@ const express = require('express')
 const router = new express.Router()
 const User = require('../models/users.js')
 const auth = require('../middlewares/authentication.js')
-
+const multer = require('multer')
 //sign up token
 router.post('/users', async (req,res)=>{
   const oneUser = new User(req.body)
@@ -100,6 +100,27 @@ router.delete("users/me",auth, async(req, rep)=>{
     res.status(500).send()
   }
 })
+
+//profile photo uploads
+const upload = multer({
+  dest:'avatars',
+  limits:{
+    fileSize:1000000 //1mb
+  },
+  fileFilter(req, file ,cb){
+      if(!file.originalname.match(/\.(jpg|png|jpeg)$/)){
+          cb(new Error('File must be an image'))
+      }
+      cb(null, true)
+  }
+})
+
+//avator will be the key we want to find in the request
+router.post('users/me/avator', upload.single('avator'),(req,res) => {
+  res.send()
+},(error, req, res, next)=>{
+  res.status(400).send({error:error.message})
+})//error parameters must be like this so the user can understand this is the error handle function
 
 // router.patch('/users/me', auth, async (req, res) => {
 //     const updates = Object.keys(req.body)
